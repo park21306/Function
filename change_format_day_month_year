@@ -1,0 +1,70 @@
+class ThaiDateConverter:
+    def __init__(self):
+        self.current_thai_year = datetime.now().year + 543
+        self.base_thai_year = self.current_thai_year - 600
+        self.thai_months = {
+            "มกราคม": "January", "ม.ค": "January", "กุมภาพันธ์": "February", "ก.พ.": "February",
+            "มีนาคม": "March", "มี.ค": "March", "เมษายน": "April", "เม.ย.": "April","เมษยน": "April",
+            "พฤษภาคม": "May", "พ.ค.": "May", "มิถุนายน": "June", "มิ.ย": "June",
+            "กรกฎาคม": "July", "ก.ค": "July", "สิงหาคม": "August", "ส.ค": "August",
+            "กันยายน": "September", "ก.ย": "September", "ตุลาคม": "October", "ต.ค": "October",
+            "พฤศจิกายน": "November", "พ.ย": "November","พฤศจิกายม":"November","พศจิกายน":"November", "ธันวาคม": "December", "ธ.ค": "December"
+        }
+        self.number_months = {str(i).zfill(2): month for i, month in enumerate([
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"], start=1)}
+
+    def correct_year(self, date):
+        year = date.year
+        if year <= self.current_thai_year & year != self.base_thai_year:
+            return date.replace(year=year - 543)
+        elif year <= self.base_thai_year & year == self.base_thai_year:
+            return date.replace(year=year + 600 - 543)
+        elif year >= self.current_thai_year:
+            return date.replace(year=year - 543)
+        elif year >= 2566:
+            return date.replace(year=year - 543)
+        elif "19" in str(year):
+            return date.replace(year=year + 600 - 543)
+        return date
+
+    def correct_dates(self, dataframe, columns):
+        for i in range(len(dataframe.index)):
+            date = dataframe.at[i, columns]
+            if not pd.isna(date):
+                if isinstance(date, str):
+                    if '/' in date:
+                        date = self.convert_date_g(dataframe.at[i, columns])
+                    elif '-' in date:
+                        date = self.convert_date_l(dataframe.at[i, columns])
+                    else:
+                        date = self.convert_thai_date(dataframe.at[i, columns])
+                if not isinstance(date, datetime):
+                    date = pd.to_datetime(date)
+                if isinstance(date, datetime):
+                    dataframe.at[i, columns] = self.correct_year(date)
+        return dataframe
+
+    def convert_thai_date(self, thai_date):
+        day, month_thai, year_thai = thai_date.split()
+        month = self.thai_months[month_thai]
+        year = int(year_thai) - 543 if len(year_thai) == 4 else int(year_thai) + 2500 - 543
+        date = f'{year}-{month}-{day}'
+        return pd.to_datetime(date, format='%Y-%B-%d').to_pydatetime()
+
+    def convert_date_g(self, date):
+        day, months, year_thai = date.split("/")
+        if type (months) == str:
+            if len(months) == 1:
+                months = "0" + months   
+        month = self.number_months[months]
+        year = int(year_thai) - 543
+        date = f'{year}-{month}-{day}'
+        return pd.to_datetime(date, format='%Y-%B-%d').to_pydatetime()
+
+    def convert_date_l(self, date):
+        day, months, year_thai = date.split("-")
+        month = self.number_months[months]
+        year = int(year_thai) - 543 if len(year_thai) == 4 else int(year_thai) + 2500 - 543
+        date = f'{year}-{month}-{day}'
+        return pd.to_datetime(date, format='%Y-%B-%d').to_pydatetime()
